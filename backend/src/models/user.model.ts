@@ -1,5 +1,9 @@
 export interface User {
-    username: string;
-    email?: string;
+    userID?: string;
+    nume?: string;
+    prenume: string;
+    email: string;
     password: string;
-}
+    role: 'admin' | 'user';
+    createdAt?: Date;
+}  

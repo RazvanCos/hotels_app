@@ -1,31 +1,29 @@
-import mysql from 'mysql2/promise'
+import mysql, { Connection } from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 dotenv.config();
-let dbConnection: mysql.Connection | null = null;
 
-
-export const connectToDatabase = async () => {
+export const connectToDatabase = async (dbName: string) : Promise<Connection>=> {
     const {DB_HOST, DB_USER, DB_PASSWORD, DB_NAME} = process.env;
     try {
-        dbConnection = await mysql.createConnection({
+        let connection: Connection = await mysql.createConnection({
             host: DB_HOST,
             user: DB_USER,
             password: DB_PASSWORD,
-            database: DB_NAME
+            database: dbName
         });
-        console.log('Successfully connected to the database');
-        return dbConnection;
+        console.log(`Successfully connected to the database: ${dbName}`);
+        return connection;
     } catch (error: any) {
-        console.log(`Error on connecting to the database`, error.message);
+        console.log(`Error on connecting to the database: ${dbName || DB_NAME}`, error.message);
         throw error;
     }
 }
 
-export const closeDatabase = async () => {
+export const closeDatabase = async (connection: Connection): Promise<void> => {
     try {
-        if(dbConnection){
-            await dbConnection.end();
+        if(connection){
+            await connection.end();
             console.log('Database connection closed');
         }
     } catch (error:any) {

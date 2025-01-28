@@ -1,27 +1,31 @@
-import express from 'express';
-// import mysql from 'mysql2/promise'
+import express, { Application } from 'express';
 import cors from 'cors';
-// import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-// import { employeeRoutes } from './routes/employeesRoutes';
-// import { userRoutes } from './routes/userRoutes';
+import { hotelsRoutes } from './routes/hotelsRoutes';
+import { userRoutes } from './routes/userRoutes';
 import { connectToDatabase, closeDatabase } from './database/database';
+import { Connection } from 'mysql2/promise';
 
 
 dotenv.config();
 
-const app = express();
+const app: Application = express();
 app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN, methods: ['GET', 'POST', 'PUT', 'DELETE'] }));
 
+let userDbConnection: Connection | null = null;
+let hotelsDbConnection: Connection | null = null;
 
 const start = async () => {
     try {
-        await connectToDatabase(); // conectare la DB
-        // await connectToDatabase();
+        const userDbName: string= process.env.DB_USERS_NAME!;
+        const hotelsDbName: string = process.env.DB_HOTELS_NUME!;
+        // database connections
+        userDbConnection = await connectToDatabase(userDbName); 
+        hotelsDbConnection = await connectToDatabase(hotelsDbName);
         // Inregistrare rute
-        // await employeeRoutes(app, db);
-        // await userRoutes(app, db);
+        userRoutes(app, userDbConnection);
+        hotelsRoutes(app, hotelsDbConnection);
         const port: string = process.env.PORT || '3000';
         app.listen(port, () => {
             console.log('Server is running on http://localhost:3000')
@@ -35,7 +39,8 @@ const start = async () => {
 const handleShutdown = async () => {
     console.log('Shutting down server...');
     try {
-        await closeDatabase(); // Close database connection
+        if(userDbConnection) await closeDatabase(userDbConnection);
+        if(hotelsDbConnection) await closeDatabase(hotelsDbConnection);
         console.log('MySql connection closed.');
     } catch (error: any) {
         console.error('Error closing database connection:', error);
