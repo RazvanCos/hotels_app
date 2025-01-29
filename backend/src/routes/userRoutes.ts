@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { User } from '../models/user.model';
 import bcrypt from 'bcrypt';
 import { Connection } from 'mysql2/promise';
+import jwt from 'jsonwebtoken';
 
 export const userRoutes = (app: any, db: Connection): void => {
 
@@ -32,10 +33,13 @@ export const userRoutes = (app: any, db: Connection): void => {
                 'INSERT INTO Users (Nume, Prenume, Email, PasswordHash, Role) VALUES (?, ?, ?, ?, ?)',
                 [nume, prenume, email, hashedPass, role]
             );
+            
+            const token = jwt.sign({ email: email, role: role }, 'secret_key', { expiresIn: '1h' });
 
             res.status(200).json({
                 message: 'User registered successfully!',
                 userId: result.insertId,
+                token: token
             });
         } catch (error: any) {
             console.error('Error registering user:', error.message);
@@ -50,6 +54,7 @@ export const userRoutes = (app: any, db: Connection): void => {
     // POST Authenticate users
     app.post('/login', async (req: Request, res: Response) => {
         const { email, password } = req.body as User;
+        console.log(`Received login request - email: ${email}, password: ${password}`);
         try {
             const [user]:any[] = await db.query('SELECT * FROM Users WHERE Email = ?', [email]);
             if (!user) {
@@ -57,12 +62,12 @@ export const userRoutes = (app: any, db: Connection): void => {
             }
 
             const isPasswordValid = await bcrypt.compare(password, user[0].PasswordHash);
+            console.log(`Password valid: ${isPasswordValid}`); 
             if (!isPasswordValid) {
                 return res.status(401).send({message:'Invalid email or password'});
             }
 
-            // const token = jwt.sign({ username: user.username, userId: user._id }); 
-            return res.send({ message: 'Login successful', user: {username: user[0].Nume, email: user[0].email}});
+            return res.send({ message: 'Login successful', user: {username: user[0].Nume, email: user[0].Email}});
         } catch (error: any) {
             return res.status(500).send({ error: 'Failed to login!', message: error.message });
         }
@@ -72,6 +77,10 @@ export const userRoutes = (app: any, db: Connection): void => {
     app.put('/users/update-password', async (req: Request, res: Response) => {
         const { email, oldPassword, newPassword } = req.body as { email: string, oldPassword: string, newPassword: string }
         try {
+            if (!email || !oldPassword || !newPassword) {
+                return res.status(400).send({ error: 'Missing required fields' });
+            }
+            console.log('Email primit in cerere:', email)
             const [user]: any[] = await db.query('SELECT * FROM Users WHERE Email = ?', [email]);
             if (!user) {
                 return res.status(400).send({ error: 'User not found' });
@@ -99,10 +108,24 @@ export const userRoutes = (app: any, db: Connection): void => {
             if (!user) {
                 return res.status(400).send({ error: 'User not found' });
             }
-            await db.query('UPDATE Users SET PasswordHash = ? WHERE Email = ?', [newEmail, email]);
+            await db.query('UPDATE Users SET Email = ? WHERE Email = ?', [newEmail, email]);
             res.send({message: 'Email updated successfully!'});
         } catch (error: any) {
             res.status(500).send({ error: 'Failed to update email', message: error.message });
         }
     });
+
+    app.put('/users/update-name', async (req:Request, res: Response) => {
+        const {email, newName} = req.body as {email: string, newName: string};
+        try {
+           const[user]: any[] = await db.query('SELECT * FROM Users WHERE Email = ?', [email]);
+           if (!user) {
+            return res.status(400).send({ error: 'User not found' });
+        }
+        await db.query('UPDATE Users SET Nume = ? WHERE Email = ?', [newName, email]);
+        res.send({message: 'Nume was updated successfully'});
+        } catch (error: any) {   
+            res.status(500).send({error: 'Failed to update nume', message: error.message});
+        }      
+    })
 }
